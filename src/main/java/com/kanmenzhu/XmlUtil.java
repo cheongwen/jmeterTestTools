@@ -17,55 +17,28 @@ import java.util.List;
  */
 public class XmlUtil {
 
+
+    public static String test_plan;
+    public static String test_name ;
+    public static String test_dir;
+
     public static void writeTestFile(Element root) {
         try {
-            String testplan = root.element("hashTree").element("TestPlan").attribute("testname").getValue();
-            String dir = testplan + "_" + System.currentTimeMillis();
-            File testDir = new File(dir);
+            test_plan = root.element("hashTree").element("TestPlan").attribute("testname").getValue();
+            test_dir = test_plan + "_" + System.currentTimeMillis();
+            File testDir = new File(test_dir);
             testDir.mkdir();
             System.out.println("生成测试jmx路径：" + testDir.getAbsolutePath());
-            XMLWriter writer = new XMLWriter(new FileWriter(new File(testDir.getAbsolutePath() + "/jmeter_test.jmx")));
+            XMLWriter writer = new XMLWriter(new FileWriter(new File(testDir.getAbsolutePath() + File.separator + ShellUtil.JMETER_TEST_FILE)));
             writer.write(root);
             writer.close();
-            createShell(testDir);
+            ShellUtil.createShell(testDir);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    public static void createShell(File testDir) {
-        StringBuffer shfile = new StringBuffer();
-        Integer min = Integer.valueOf(Config.get("run.threads.min"));
-        Integer max = Integer.valueOf(Config.get("run.threads.max"));
-        Integer step = Integer.valueOf(Config.get("run.threads.step"));
-        String ramptime = Config.get("run.threads.ramptime");
-        String time = Config.get("run.time");
-        String sleeptime = Config.get("run.sleeptime");
-        for (int i = min.intValue(); i <= max.intValue(); i = i + step.intValue()) {
-            String jmx = testDir.getAbsolutePath() + "/jmeter_test.jmx";
-            String report = testDir.getAbsolutePath() + "/" + i + "_" + time;
-            String startinfo = "echo \"" + i + "个并发，运行" + time + "s\" >> runjmeter.log";
-            shfile.append(startinfo);
-            shfile.append("\n");
-            String sh = "sh " + Config.get("run.jmeter.home") + "/bin/jmeter.sh -JnumThreads=" + i + " -JrampTime=" + ramptime + " -Jduration=" + time + " -n -t " + jmx + " -l " + report + ".jtl -e -o " + report + " >> runjmeter.log";
-            shfile.append(sh);
-            shfile.append("\n");
-            String endinfo = "echo \"=======end=======\" >> runjmeter.log";
-            shfile.append(endinfo);
-            shfile.append("\n");
-            String sleep = "sleep " + sleeptime;
-            shfile.append(sleep);
-            shfile.append("\n");
-        }
-        try {
-            File file = new File(testDir.getAbsolutePath()+"/auto_run_jmeter.sh");
-            FileWriter writer = new FileWriter(file);
-            writer.write(shfile.toString());
-            writer.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
+
 
     public static void readJmxFile(File file) {
         // 创建saxReader对象
@@ -75,8 +48,8 @@ public class XmlUtil {
             Document document = reader.read(file);
             Element root = document.getRootElement();
             Element threadGroup = root.element("hashTree").element("hashTree").element("ThreadGroup");
-            String testname = threadGroup.attribute("testname").getValue();
-            System.out.println("testname：" + testname);
+            test_name = threadGroup.attribute("testname").getValue();
+            System.out.println("testname：" + test_name);
             if (Config.get("run.mode").equals("cycle")) {
                 System.out.println("按次执行");
                 //TODO 按次
@@ -97,7 +70,8 @@ public class XmlUtil {
     }
 
     public static void main(String[] args) {
-
+        System.out.println(File.separator);
+        System.out.println(File.pathSeparator);
     }
 
     public static void runByTime(Element threadGroup) {

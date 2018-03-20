@@ -25,5 +25,6 @@ public class MainRun {
         }
         Config.readConfig(configFile);
         XmlUtil.readJmxFile(jmxFile);
+        ShellUtil.createShell(new File(XmlUtil.test_dir));
     }
 }
