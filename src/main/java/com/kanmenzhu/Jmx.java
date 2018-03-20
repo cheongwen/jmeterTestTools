@@ -2,32 +2,32 @@ package com.kanmenzhu;
 
 import com.sun.prism.shader.DrawPgram_ImagePattern_AlphaTest_Loader;
 
-public class Jmx {
+public interface Jmx {
 
+    /**
+     * 并发数，整数>0
+     */
     public final static String NUM_THREADS = "ThreadGroup.num_threads";
+    /**
+     * 设置启动时间，单位：秒
+     */
     public final static String RAMP_TIME = "ThreadGroup.ramp_time";
+    /**
+     * 按时间执行，设置运行时间，单位：秒
+     */
     public final static String DURATION = "ThreadGroup.duration";
+    /**
+     * 按时间or次数运行，按照时间运行设置true，按照次数运行设置false
+     */
     public final static String CONTINUE_FOREVER = "LoopController.continue_forever";
+    /**
+     * 按次执行，循环次数，整数>0
+     */
     public final static String LOOPS = "LoopController.loops";
-
-    public class ThreadGroup {
-        /**
-         * 线程数
-         */
-        private String num_threads;
-        /**
-         * 间隔启动时间
-         */
-        private String ramp_time;
-        /**
-         * 持续运行时间
-         */
-        private String duration;
-        /**
-         * 永远循环
-         */
-        private boolean continue_forever;
+    /**
+     * 开启调度器
+     */
+    public final static String SCHEDULER = "ThreadGroup.scheduler";
 
 
-    }
 }

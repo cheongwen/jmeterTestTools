@@ -5,10 +5,11 @@ import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
-import org.dom4j.io.SAXWriter;
-import org.xml.sax.SAXException;
+import org.dom4j.io.XMLWriter;
 
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -16,60 +17,163 @@ import java.util.List;
  */
 public class XmlUtil {
 
-    /**
-     * 设置运行时间，单位：分钟
-     */
-    public void setRunTime(int runTime) {
-
+    public static void writeTestFile(Element root) {
+        try {
+            String testplan = root.element("hashTree").element("TestPlan").attribute("testname").getValue();
+            String dir = testplan + "_" + System.currentTimeMillis();
+            File testDir = new File(dir);
+            testDir.mkdir();
+            System.out.println("生成测试jmx路径：" + testDir.getAbsolutePath());
+            XMLWriter writer = new XMLWriter(new FileWriter(new File(testDir.getAbsolutePath() + "/jmeter_test.jmx")));
+            writer.write(root);
+            writer.close();
+            createShell(testDir);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
-    /**
-     * 设置循环次数
-     */
-    public void setCycleTime() {
-
+    public static void createShell(File testDir) {
+        StringBuffer shfile = new StringBuffer();
+        Integer min = Integer.valueOf(Config.get("run.threads.min"));
+        Integer max = Integer.valueOf(Config.get("run.threads.max"));
+        Integer step = Integer.valueOf(Config.get("run.threads.step"));
+        String ramptime = Config.get("run.threads.ramptime");
+        String time = Config.get("run.time");
+        String sleeptime = Config.get("run.sleeptime");
+        for (int i = min.intValue(); i <= max.intValue(); i = i + step.intValue()) {
+            String jmx = testDir.getAbsolutePath() + "/jmeter_test.jmx";
+            String report = testDir.getAbsolutePath() + "/" + i + "_" + time;
+            String startinfo = "echo \"" + i + "个并发，运行" + time + "s\" >> runjmeter.log";
+            shfile.append(startinfo);
+            shfile.append("\n");
+            String sh = "sh " + Config.get("run.jmeter.home") + "/bin/jmeter.sh -JnumThreads=" + i + " -JrampTime=" + ramptime + " -Jduration=" + time + " -n -t " + jmx + " -l " + report + ".jtl -e -o " + report + " >> runjmeter.log";
+            shfile.append(sh);
+            shfile.append("\n");
+            String endinfo = "echo \"=======end=======\" >> runjmeter.log";
+            shfile.append(endinfo);
+            shfile.append("\n");
+            String sleep = "sleep " + sleeptime;
+            shfile.append(sleep);
+            shfile.append("\n");
+        }
+        try {
+            File file = new File(testDir.getAbsolutePath()+"/auto_run_jmeter.sh");
+            FileWriter writer = new FileWriter(file);
+            writer.write(shfile.toString());
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
-    public static void readFile(String filePath) {
+    public static void readJmxFile(File file) {
         // 创建saxReader对象
         SAXReader reader = new SAXReader();
         try {
             // 通过read方法读取一个文件 转换成Document对象
-            Document document = reader.read(new File(filePath));
+            Document document = reader.read(file);
             Element root = document.getRootElement();
             Element threadGroup = root.element("hashTree").element("hashTree").element("ThreadGroup");
             String testname = threadGroup.attribute("testname").getValue();
-            System.out.println(testname);
-            List<Element> props = threadGroup.elements("stringProp");
-            for (Element prop : props){
-                Attribute name = prop.attribute("name");
-                System.out.println(name);
-                //设置并发数
-                if (name.getValue().equals(Jmx.NUM_THREADS)){
-                    name.setValue("30000");
-                }
-                //设置是否永久循环
-                if (name.getValue().equals(Jmx.CONTINUE_FOREVER)){
-                    name.setValue("false");
-                }
-                //设置运行时间
-                if (name.getValue().equals(Jmx.DURATION)){
-                    name.setValue("18000");
-                }
+            System.out.println("testname：" + testname);
+            if (Config.get("run.mode").equals("cycle")) {
+                System.out.println("按次执行");
+                //TODO 按次
+                runByCycle(threadGroup);
+                writeTestFile(root);
+            } else if (Config.get("run.mode").equals("time")) {
+                System.out.println("按时间执行");
+                //TODO 按时间
+                runByTime(threadGroup);
+                writeTestFile(root);
+            } else {
+                System.out.println("Err：运行方式错误，run.mode=" + Config.get("run.mode") + "，目前只支持cycle&time");
             }
-            SAXWriter writer = new SAXWriter();
-            writer.write(root);
-            
+
         } catch (DocumentException e) {
             e.printStackTrace();
-        } catch (SAXException e) {
-            e.printStackTrace();
-            System.out.println("写文件出错");
         }
     }
 
     public static void main(String[] args) {
-        readFile("/Users/chang.lu/样例模板空.jmx");
+
     }
+
+    public static void runByTime(Element threadGroup) {
+        //按时间运行必须开启调度器
+        List<Element> boolprops = threadGroup.elements("boolProp");
+        for (Element prop : boolprops) {
+            if (Jmx.SCHEDULER.equals(prop.attribute("name").getValue())) {
+                prop.setText("true");
+                System.out.println("设置调度器成功");
+            }
+        }
+        //首先判断是否存在循环次数节点，按时间执行，则需要设置用于循环
+        Element elementProp = threadGroup.element("elementProp");
+        Element loopNum = elementProp.element("stringProp");
+        if (loopNum != null) {
+            elementProp.remove(loopNum);
+            elementProp.addElement("intProp").addAttribute("name", Jmx.LOOPS).addText("-1");
+        }
+        //分别根据配置文件设置运行参数
+        List<Element> props = threadGroup.elements("stringProp");
+        for (Element prop : props) {
+            Attribute name = prop.attribute("name");
+            //设置并发数
+            if (name.getValue().equals(Jmx.NUM_THREADS)) {
+                prop.setText(Config.get(Jmx.NUM_THREADS));
+            }
+            //设置运行时间
+            if (name.getValue().equals(Jmx.DURATION)) {
+                prop.setText(Config.get(Jmx.DURATION));
+            }
+            //设置间隔启动时间
+            if (name.getValue().equals(Jmx.RAMP_TIME)) {
+                prop.setText(Config.get(Jmx.RAMP_TIME));
+            }
+        }
+    }
+
+    public static void runByCycle(Element threadGroup) {
+        //按时间运行必须开启调度器
+        List<Element> boolprops = threadGroup.elements("boolProp");
+        for (Element prop : boolprops) {
+            if (Jmx.SCHEDULER.equals(prop.attribute("name").getValue())) {
+                prop.setText("false");
+                System.out.println("设置调度器成功");
+            }
+        }
+        List<Element> props = threadGroup.elements("stringProp");
+        if (props != null) {
+            for (Element prop : props) {
+                Attribute name = prop.attribute("name");
+                //设置并发数
+                if (name.getValue().equals(Jmx.NUM_THREADS)) {
+                    prop.setText(Config.get(Jmx.NUM_THREADS));
+                }
+                //设置间隔启动时间
+                if (name.getValue().equals(Jmx.RAMP_TIME)) {
+                    prop.setText(Config.get(Jmx.RAMP_TIME));
+                }
+            }
+        }
+        //设置运行次数
+        String loop = Config.get(Jmx.LOOPS);
+        //首先判断是否存在循环次数节点，如果没有则添加
+        Element elementProp = threadGroup.element("elementProp");
+        Element loopNum = elementProp.element("stringProp");
+        if (loopNum != null) {
+            loopNum.setText(loop);
+        } else {
+            Element intProp = elementProp.element("intProp");
+            if (intProp != null) {
+                elementProp.addElement("stringProp").addAttribute("name", Jmx.LOOPS).addText(loop);
+                elementProp.remove(intProp);
+            }
+
+        }
+    }
+
 
 }

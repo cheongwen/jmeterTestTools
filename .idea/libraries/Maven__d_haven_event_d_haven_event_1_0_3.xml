@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="Maven: d-haven-event:d-haven-event:1.0.3">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/../../tools/apache-maven-3.5.2/.m2/repository/d-haven-event/d-haven-event/1.0.3/d-haven-event-1.0.3.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$PROJECT_DIR$/../../tools/apache-maven-3.5.2/.m2/repository/d-haven-event/d-haven-event/1.0.3/d-haven-event-1.0.3-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$PROJECT_DIR$/../../tools/apache-maven-3.5.2/.m2/repository/d-haven-event/d-haven-event/1.0.3/d-haven-event-1.0.3-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

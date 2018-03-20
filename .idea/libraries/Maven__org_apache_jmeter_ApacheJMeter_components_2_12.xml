@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="Maven: org.apache.jmeter:ApacheJMeter_components:2.12">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/../../tools/apache-maven-3.5.2/.m2/repository/org/apache/jmeter/ApacheJMeter_components/2.12/ApacheJMeter_components-2.12.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$PROJECT_DIR$/../../tools/apache-maven-3.5.2/.m2/repository/org/apache/jmeter/ApacheJMeter_components/2.12/ApacheJMeter_components-2.12-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$PROJECT_DIR$/../../tools/apache-maven-3.5.2/.m2/repository/org/apache/jmeter/ApacheJMeter_components/2.12/ApacheJMeter_components-2.12-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
