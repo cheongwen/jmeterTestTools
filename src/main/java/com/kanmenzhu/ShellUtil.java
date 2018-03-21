@@ -16,11 +16,19 @@ public class ShellUtil {
 
     /**
      * 生成测试sh脚本
+     *
      * @param testDir
      */
     public static void createShell(File testDir) {
         StringBuffer shfile = new StringBuffer();
+        //运行系统linux windows
         String sys = Config.get("run.jmeter.sys");
+        String fileheader = "#!/bin/bash";
+        if (SYSTEM_WINDOWS.equals(sys)) {
+            fileheader = "@echo off";
+        }
+        shfile.append(fileheader);
+        shfile.append(LINE);
         Integer min = Integer.valueOf(Config.get("run.threads.min"));
         Integer max = Integer.valueOf(Config.get("run.threads.max"));
         Integer step = Integer.valueOf(Config.get("run.threads.step"));
@@ -50,10 +58,7 @@ public class ShellUtil {
             shfile.append(LINE);
             String sleep = "sleep " + sleeptime;
             if (SYSTEM_WINDOWS.equals(sys)) {
-                sleep = "set SLEEP=ping 127.0.0.1 -n";
-                shfile.append(sleep);
-                shfile.append(LINE);
-                sleep = "::%SLEEP% 60";
+                sleep = "ping 1.1.1.1 -n " + sleeptime + " > nul";
             }
             shfile.append(sleep);
             shfile.append(LINE);
