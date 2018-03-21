@@ -14,6 +14,10 @@ public class ShellUtil {
     public final static String SYSTEM_WINDOWS = "windows";
     public final static String LINE = System.lineSeparator();
 
+    /**
+     * 生成测试sh脚本
+     * @param testDir
+     */
     public static void createShell(File testDir) {
         StringBuffer shfile = new StringBuffer();
         String sys = Config.get("run.jmeter.sys");
@@ -57,7 +61,7 @@ public class ShellUtil {
         try {
             //生成自动运行脚本,根据设置系统windows & linux
             File file = new File(testDir.getAbsolutePath() + File.separator + RUN_TEST_FILE_LINUX);
-            if (SYSTEM_WINDOWS.equals(sys)){
+            if (SYSTEM_WINDOWS.equals(sys)) {
                 file = new File(testDir.getAbsolutePath() + File.separator + RUN_TEST_FILE_WIN);
             }
             FileWriter writer = new FileWriter(file);

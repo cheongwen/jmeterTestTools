@@ -1,6 +1,8 @@
 package com.kanmenzhu;
 
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.*;
 
 import com.alibaba.fastjson.JSONArray;
@@ -12,6 +14,10 @@ import org.apache.poi.xssf.usermodel.XSSFCell;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.xmlbeans.impl.jam.JSourcePosition;
+import org.openxmlformats.schemas.drawingml.x2006.main.STAdjCoordinate;
+
+import javax.xml.crypto.Data;
 
 public class ExportExcel {
 
@@ -39,11 +45,11 @@ public class ExportExcel {
      * 导出excel
      *
      * @param excel_name 导出的excel路径（需要带.xlsx)
-     * @param datalist   excel数据
+     * @param datamap    excel数据
      * @throws Exception
      */
 
-    public static void createExcel(String excel_name, Map<String, String[]> datamap) throws Exception {
+    public static void createExcel(String excel_name, Map<String, String[]> datamap) {
         // 创建新的Excel 工作簿
         XSSFWorkbook workbook = new XSSFWorkbook();
         // 在Excel工作簿中建一工作表，其名为缺省值
@@ -146,7 +152,7 @@ public class ExportExcel {
         row3cell13.getCellStyle().setAlignment(HorizontalAlignment.CENTER);
         row3cell13.setCellValue(SENT);
 
-
+        // 添加数据
         // ===============================================================
         Iterator<String> iterator = datamap.keySet().iterator();
         int n = 0;
@@ -173,61 +179,77 @@ public class ExportExcel {
 
             n++;
         }
-        // 添加数据
-//
-        // 新建一输出文件流
-        FileOutputStream fos = new FileOutputStream(excel_name);
-        // 把相应的Excel 工作簿存盘
-        workbook.write(fos);
-        fos.flush();
-        // 操作结束，关闭文件
-        fos.close();
-        workbook.close();
-        System.out.println("已导出文件：" + excel_name);
-    }
-
-    public static void main(String[] args) {
-//		if (args.length != 3) {
-//			System.out.println("参数说明：请输入生成报表名称和导出数据id范围，如：test1.xlsx 167 180");
-//			System.out.println("filename：导出excel文件名称");
-//			System.out.println("id-start：auto_asr_log数据表中id起始位置");
-//			System.out.println("id-end：auto_asr_log数据表中id结束位置");
-//			return;
-//		}
-        String filename = "test.xlsx";
-
         try {
-            createExcel(filename, getData());
-        } catch (Exception e) {
+            // 新建一输出文件流
+            FileOutputStream fos = new FileOutputStream(excel_name);
+            // 把相应的Excel 工作簿存盘
+            workbook.write(fos);
+            fos.flush();
+            // 操作结束，关闭文件
+            fos.close();
+            workbook.close();
+            System.out.println("已导出文件：" + excel_name);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
             e.printStackTrace();
         }
 
     }
 
-    public static Map<String, String[]> getData() {
+    public static void main(String[] args) {
+        String filename = "test.xlsx";
+        try {
+            createExcel(filename, getData("/Users/chang.lu/Documents/dev_workspace/JmeterTestTool/testrun_1521541865273"));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 通过测试报告集合目录获取报告结果数据
+     *
+     * @param filepath
+     * @return
+     */
+    public static Map<String, String[]> getData(String filepath) {
         Map<String, String[]> data = new HashMap<>();
-        ReportUtil.getJs("/Users/chang.lu/Documents/dev_workspace/JmeterTestTool/testrun_1521541865273");
+        ReportUtil.getJs(filepath);
         Map<String, String> result = ReportUtil.resultByThreads;
         Iterator<String> iterator = result.keySet().iterator();
         while (iterator.hasNext()) {
             String key = iterator.next();
-            String sum = result.get(key);
-            data.put(key, parseData(sum));
+            String sumstring = result.get(key);
+            List<String[]> sums = parseData(sumstring);
+            for (String[] sum : sums) {
+                String keynow = key + "_" + sum[0];
+                data.put(keynow, sum);
+            }
         }
         return data;
     }
 
-    public static String[] parseData(String jsonstring) {
+    /**
+     * 解析报告结果数据json字符串，获取性能测试数据
+     *
+     * @param jsonstring
+     * @return
+     */
+    public static List<String[]> parseData(String jsonstring) {
         JSONObject json = JSONObject.parseObject(jsonstring);
         JSONArray items = (JSONArray) json.get("items");
-        JSONObject items1 = (JSONObject) items.get(0);
-        JSONArray data = (JSONArray) items1.get("data");
-        Object[] objects = data.toArray();
-        String[] dataString = new String[data.size()];
-        for (int i = 0; i < data.size(); i++) {
-            System.out.println(objects[i].toString());
-            dataString[i] = objects[i].toString();
+        List<String[]> datalist = new ArrayList<>();
+        for (int i = 0; i < items.size(); i++) {
+            JSONObject item = (JSONObject) items.get(i);
+            JSONArray data = (JSONArray) item.get("data");
+            Object[] objects = data.toArray();
+            String[] dataString = new String[data.size()];
+            for (int j = 0; j < data.size(); j++) {
+                SummaryReport sum = new SummaryReport(data);
+                dataString = sum.getStringData();
+            }
+            datalist.add(dataString);
         }
-        return dataString;
+        return datalist;
     }
 }

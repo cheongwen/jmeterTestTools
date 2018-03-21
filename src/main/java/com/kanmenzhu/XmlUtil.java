@@ -19,7 +19,7 @@ public class XmlUtil {
 
 
     public static String test_plan;
-    public static String test_name ;
+    public static String test_name;
     public static String test_dir;
 
     public static void writeTestFile(Element root) {
@@ -37,7 +37,6 @@ public class XmlUtil {
             e.printStackTrace();
         }
     }
-
 
 
     public static void readJmxFile(File file) {

@@ -6,7 +6,7 @@
 
     <groupId>com.kanmenzhu</groupId>
     <artifactId>JmeterTestTool</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>v1.0</version>
 
     <dependencies>
         <dependency>
