@@ -1,5 +1,5 @@
 # jmeterTestTools
-#功能说明
+# 功能说明
 >1.根据性能测试运行方案配置，生成自动运行脚本。<br/>
 >>运行配置文件 runconfig.properties<br/>
 >>
@@ -33,10 +33,10 @@ run.sleeptime=60<br/>
 >
 >>自动测试脚本执行完成后，jmeter生成测试报告目录，本工具会汇总每次执行完成后的测试报告，生成总的测试报表，格式为excel。
 
-#使用说明
+# 使用说明
 >usage：java -jar JmeterTestTool-v1.x.jar  [test | report]  [jmx file | report file]  [config file | report dir]
 
-##一、生成测试脚本
+## 一、生成测试脚本
 >example：java -jar JmeterTestTool-v1.x.jar [test] [test.jmx] [config.properties]    
 >
 	1. 生成测试脚本 usage: test
@@ -59,7 +59,7 @@ run.sleeptime=60<br/>
 >1. 根据方案运行配置生成对应的测试报告文件及目录，命名方式：并发数_执行时间(s)，如10\_120.jtl、10\_120
 
 
-##二、合成测试报告
+## 二、合成测试报告
 >example：java -jar JmeterTestTool-v1.x.jar [report] [report.xlsx] [/home/testrun_1521541865273]<br/>
 >
 	1. 合成测试报告 usage: report
