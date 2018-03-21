@@ -1,4 +1,8 @@
 # jmeterTestTools
+# 运行环境
+> jdk 8<br/>
+> jmeter 3.x及以上
+
 # 功能说明
 >1.根据性能测试运行方案配置，生成自动运行脚本。<br/>
 >>运行配置文件 runconfig.properties<br/>
