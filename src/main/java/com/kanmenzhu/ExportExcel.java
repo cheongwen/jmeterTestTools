@@ -73,7 +73,7 @@ public class ExportExcel {
         // 设置表格样式
         // 设置excel头（第一行）的头名称
         cell00.getCellStyle().setAlignment(HorizontalAlignment.CENTER);
-        cell00.setCellValue(XmlUtil.test_plan + "结果统计");
+        cell00.setCellValue("结果统计");
         // 第二行
         // Request，Executions,Response Time(ms),Network(KB/sec)
         XSSFRow row1 = sheet.createRow(1);
