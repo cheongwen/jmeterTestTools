@@ -1,0 +1,375 @@
+package com.kanmenzhu;
+
+import org.apache.commons.collections.map.LinkedMap;
+import org.apache.jmeter.reporters.ResultCollector;
+import org.apache.jmeter.samplers.SampleEvent;
+import org.apache.jmeter.samplers.SampleResult;
+import org.apache.jmeter.samplers.SampleSaveConfiguration;
+import org.apache.jmeter.samplers.StatisticalSampleResult;
+import org.apache.jmeter.save.CSVSaveService;
+import org.apache.jmeter.save.SaveService;
+import org.apache.jmeter.util.Calculator;
+import org.apache.jmeter.util.JMeterUtils;
+import org.apache.jorphan.reflect.Functor;
+import org.apache.jorphan.util.JMeterError;
+import org.apache.oro.text.regex.Pattern;
+import org.apache.oro.text.regex.PatternMatcherInput;
+import org.apache.oro.text.regex.Perl5Matcher;
+import org.apache.poi.util.SystemOutLogger;
+
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.text.ParseException;
+import java.util.*;
+
+public class BaseTools {
+
+    private static final LinkedMap headerLabelMethods = new LinkedMap();
+
+    // These entries must be in the same order as columns are saved/restored.
+
+    static {
+        headerLabelMethods.put(CSVSaveService.TIME_STAMP, new Functor("setTimestamp"));
+        headerLabelMethods.put(CSVSaveService.CSV_ELAPSED, new Functor("setTime"));
+        headerLabelMethods.put(CSVSaveService.LABEL, new Functor("setLabel"));
+        headerLabelMethods.put(CSVSaveService.RESPONSE_CODE, new Functor("setCode"));
+        headerLabelMethods.put(CSVSaveService.RESPONSE_MESSAGE, new Functor("setMessage"));
+        headerLabelMethods.put(CSVSaveService.THREAD_NAME, new Functor("setThreadName"));
+        headerLabelMethods.put(CSVSaveService.DATA_TYPE, new Functor("setDataType"));
+        headerLabelMethods.put(CSVSaveService.SUCCESSFUL, new Functor("setSuccess"));
+        headerLabelMethods.put(CSVSaveService.FAILURE_MESSAGE, new Functor(
+                "setAssertionResultsFailureMessage"));
+        headerLabelMethods.put(CSVSaveService.CSV_BYTES, new Functor("setBytes"));
+        headerLabelMethods.put(CSVSaveService.CSV_SENT_BYTES, new Functor("setSentBytes"));
+        // Both these are needed in the list even though they set the same
+        // variable
+        headerLabelMethods.put(CSVSaveService.CSV_THREAD_COUNT1,
+                new Functor("setThreadCounts"));
+        headerLabelMethods.put(CSVSaveService.CSV_THREAD_COUNT2,
+                new Functor("setThreadCounts"));
+        headerLabelMethods.put(CSVSaveService.CSV_URL, new Functor("setUrl"));
+        headerLabelMethods.put(CSVSaveService.CSV_FILENAME, new Functor("setFileName"));
+        headerLabelMethods.put(CSVSaveService.CSV_LATENCY, new Functor("setLatency"));
+        headerLabelMethods.put(CSVSaveService.CSV_ENCODING, new Functor("setEncoding"));
+        // Both these are needed in the list even though they set the same
+        // variable
+        headerLabelMethods.put(CSVSaveService.CSV_SAMPLE_COUNT, new Functor("setSampleCount"));
+        headerLabelMethods.put(CSVSaveService.CSV_ERROR_COUNT, new Functor("setSampleCount"));
+        headerLabelMethods.put(CSVSaveService.CSV_HOSTNAME, new Functor("setHostname"));
+        headerLabelMethods.put(CSVSaveService.CSV_IDLETIME, new Functor("setIdleTime"));
+        headerLabelMethods.put(CSVSaveService.CSV_CONNECT_TIME, new Functor("setConnectTime"));
+    }
+
+    public static void loadExistingFile(String filename) {
+
+        File file = new File(filename);
+        if (file.exists()) {
+            try (FileReader fr = new FileReader(file);
+                 BufferedReader dataReader = new BufferedReader(fr, 300)) {
+                // Get the first line, and see if it is XML
+                String line = dataReader.readLine();
+                dataReader.close();
+                if (line == null) {
+                    System.out.println(filename + " is empty");
+                } else {
+                    processSamples(filename);
+                }
+            } catch (IOException | JMeterError | RuntimeException e) {
+                System.out.println("Problem reading JTL file: " + file);
+                e.printStackTrace();
+            }
+        } else {
+            System.out.println("Error loading results file - could not open file");
+        }
+    }
+
+    public static SummaryReport processSamples(String filename) throws IOException {
+        SummaryReport sreport = new SummaryReport() ;
+//        final boolean errorsOnly = resultCollector.isErrorLogging();
+//        final boolean successOnly = resultCollector.isSuccessOnlyLogging();
+        try (InputStream inStream = new FileInputStream(filename);
+             Reader inReader = new InputStreamReader(inStream, StandardCharsets.UTF_8);
+             BufferedReader dataReader = new BufferedReader(inReader)) {
+            dataReader.mark(400);// Enough to read the header column names
+            // Get the first line, and see if it is the header
+            String line = dataReader.readLine();
+            if (line == null) {
+                throw new IOException(filename + ": unable to read header line");
+            }
+            long lineNumber = 1;
+            SampleSaveConfiguration saveConfig = getSampleSaveConfiguration(line, filename);
+            String[] parts;
+            final char delim = saveConfig.getDelimiter().charAt(0);
+            // TODO: does it matter that an empty line will terminate the loop?
+            // CSV output files should never contain empty lines, so probably
+            // not
+            // If so, then need to check whether the reader is at EOF
+            while ((parts = CSVSaveService.csvReadFile(dataReader, delim)).length != 0) {
+                lineNumber++;
+                SampleEvent event = makeResultFromDelimitedString(parts, saveConfig, lineNumber);
+                if (event != null) {
+                    final SampleResult result = event.getResult();
+                    if (ResultCollector.isSampleWanted(result.isSuccessful(),
+                            false, false)) {
+                        sreport.add(result);
+                    }
+                }
+            }
+        }
+        Map<String, Calculator> tableMap = sreport.tableRows;
+        Iterator<String> table = sreport.tableRows.keySet().iterator();
+        while (table.hasNext()){
+            String key = table.next();
+            System.out.println("key-"+key);
+            Calculator cl = tableMap.get(key);
+            System.out.println(cl.toString());
+
+        }
+        return sreport;
+    }
+
+    public static SampleSaveConfiguration getSampleSaveConfiguration(String headerLine, String filename) {
+        String[] parts = splitHeader(headerLine, ",");
+        String delim = null;
+        if (parts == null) {
+            Perl5Matcher matcher = JMeterUtils.getMatcher();
+            PatternMatcherInput input = new PatternMatcherInput(headerLine);
+            Pattern pattern = JMeterUtils.getPatternCache().getPattern("\\w+((\\W)\\w+)?(\\2\\w+)*(\\2\"\\w+\")*", 32768);
+            if (matcher.matches(input, pattern)) {
+                delim = matcher.getMatch().group(2);
+                parts = splitHeader(headerLine, delim);
+            }
+        }
+
+        if (parts == null) {
+            return null;
+        } else {
+            SampleSaveConfiguration saveConfig = new SampleSaveConfiguration();
+            int varCount = 0;
+            String[] var13 = parts;
+            int var7 = parts.length;
+
+            for (int var8 = 0; var8 < var7; ++var8) {
+                String label = var13[var8];
+                if (isVariableName(label)) {
+                    ++varCount;
+                } else {
+                    Functor set = (Functor) headerLabelMethods.get(label);
+                    set.invoke(saveConfig, new Boolean[]{Boolean.TRUE});
+                }
+            }
+
+            if (delim != null) {
+                saveConfig.setDelimiter(delim);
+            }
+
+            saveConfig.setVarCount(varCount);
+            return saveConfig;
+        }
+    }
+
+    private static String[] splitHeader(String headerLine, String delim) {
+        String[] parts = headerLine.split("\\Q" + delim);// $NON-NLS-1$
+        int previous = -1;
+        // Check if the line is a header
+        for (int i = 0; i < parts.length; i++) {
+            final String label = parts[i];
+            // Check for Quoted variable names
+            if (isVariableName(label)) {
+                previous = Integer.MAX_VALUE; // they are always last
+                continue;
+            }
+            int current = headerLabelMethods.indexOf(label);
+            if (current == -1) {
+                System.out.println("Unknown column name " + label);
+                return null; // unknown column name
+            }
+            if (current <= previous) {
+                System.out.println("Column header number " + i + 1 + " name " + label + " is out of order.");
+                return null; // out of order
+            }
+            previous = current;
+        }
+        return parts;
+    }
+
+    private static boolean isVariableName(String label) {
+        return label.length() > 2 && label.startsWith("\"")
+                && label.endsWith("\"");
+    }
+
+    private static SampleEvent makeResultFromDelimitedString(
+            String[] parts,
+            SampleSaveConfiguration saveConfig, // may be updated
+            long lineNumber) {
+
+        SampleResult result = null;
+        String hostname = "";// $NON-NLS-1$
+        long timeStamp = 0;
+        long elapsed = 0;
+        String text = null;
+        String field = null; // Save the name for error reporting
+        int i = 0;
+        try {
+            if (saveConfig.saveTimestamp()) {
+                field = CSVSaveService.TIME_STAMP;
+                text = parts[i++];
+                if (saveConfig.printMilliseconds()) {
+                    try {
+                        timeStamp = Long.parseLong(text); // see if this works
+                    } catch (NumberFormatException e) { // it did not, let's try some other formats
+                        System.out.println("Cannot parse timestamp: " + text);
+                        e.printStackTrace();
+                    }
+                } else if (saveConfig.strictDateFormatter() != null) {
+                    Date stamp = saveConfig.strictDateFormatter().parse(text);
+                    timeStamp = stamp.getTime();
+                } else { // can this happen?
+                    final String msg = "Unknown timestamp format";
+                    System.out.println(msg);
+                    throw new JMeterError(msg);
+                }
+            }
+
+            if (saveConfig.saveTime()) {
+                field = CSVSaveService.CSV_ELAPSED;
+                text = parts[i++];
+                elapsed = Long.parseLong(text);
+            }
+
+            if (saveConfig.saveSampleCount()) {
+                result = new StatisticalSampleResult(timeStamp, elapsed);
+            } else {
+                result = new SampleResult(timeStamp, elapsed);
+            }
+
+            if (saveConfig.saveLabel()) {
+                field = CSVSaveService.LABEL;
+                text = parts[i++];
+                result.setSampleLabel(text);
+            }
+            if (saveConfig.saveCode()) {
+                field = CSVSaveService.RESPONSE_CODE;
+                text = parts[i++];
+                result.setResponseCode(text);
+            }
+
+            if (saveConfig.saveMessage()) {
+                field = CSVSaveService.RESPONSE_MESSAGE;
+                text = parts[i++];
+                result.setResponseMessage(text);
+            }
+
+            if (saveConfig.saveThreadName()) {
+                field = CSVSaveService.THREAD_NAME;
+                text = parts[i++];
+                result.setThreadName(text);
+            }
+
+            if (saveConfig.saveDataType()) {
+                field = CSVSaveService.DATA_TYPE;
+                text = parts[i++];
+                result.setDataType(text);
+            }
+
+            if (saveConfig.saveSuccess()) {
+                field = CSVSaveService.SUCCESSFUL;
+                text = parts[i++];
+                result.setSuccessful(Boolean.valueOf(text).booleanValue());
+            }
+
+            if (saveConfig.saveAssertionResultsFailureMessage()) {
+                i++;
+                // TODO - should this be restored?
+            }
+
+            if (saveConfig.saveBytes()) {
+                field = CSVSaveService.CSV_BYTES;
+                text = parts[i++];
+                result.setBytes(Long.parseLong(text));
+            }
+
+            if (saveConfig.saveSentBytes()) {
+                field = CSVSaveService.CSV_SENT_BYTES;
+                text = parts[i++];
+                result.setSentBytes(Long.parseLong(text));
+            }
+
+            if (saveConfig.saveThreadCounts()) {
+                field = CSVSaveService.CSV_THREAD_COUNT1;
+                text = parts[i++];
+                result.setGroupThreads(Integer.parseInt(text));
+
+                field = CSVSaveService.CSV_THREAD_COUNT2;
+                text = parts[i++];
+                result.setAllThreads(Integer.parseInt(text));
+            }
+
+            if (saveConfig.saveUrl()) {
+                i++;
+                // TODO: should this be restored?
+            }
+
+            if (saveConfig.saveFileName()) {
+                field = CSVSaveService.CSV_FILENAME;
+                text = parts[i++];
+                result.setResultFileName(text);
+            }
+            if (saveConfig.saveLatency()) {
+                field = CSVSaveService.CSV_LATENCY;
+                text = parts[i++];
+                result.setLatency(Long.parseLong(text));
+            }
+
+            if (saveConfig.saveEncoding()) {
+                field = CSVSaveService.CSV_ENCODING;
+                text = parts[i++];
+                result.setEncodingAndType(text);
+            }
+
+            if (saveConfig.saveSampleCount()) {
+                field = CSVSaveService.CSV_SAMPLE_COUNT;
+                text = parts[i++];
+                result.setSampleCount(Integer.parseInt(text));
+                field = CSVSaveService.CSV_ERROR_COUNT;
+                text = parts[i++];
+                result.setErrorCount(Integer.parseInt(text));
+            }
+
+            if (saveConfig.saveHostname()) {
+                field = CSVSaveService.CSV_HOSTNAME;
+                hostname = parts[i++];
+            }
+
+            if (saveConfig.saveIdleTime()) {
+                field = CSVSaveService.CSV_IDLETIME;
+                text = parts[i++];
+                result.setIdleTime(Long.parseLong(text));
+            }
+            if (saveConfig.saveConnectTime()) {
+                field = CSVSaveService.CSV_CONNECT_TIME;
+                text = parts[i++];
+                result.setConnectTime(Long.parseLong(text));
+            }
+
+            if (i + saveConfig.getVarCount() < parts.length) {
+                System.out.println("Line: " + lineNumber + " Found " + parts.length + " fields, expected" + i + " Extra fields have been ignored.");
+            }
+
+        } catch (NumberFormatException | ParseException e) {
+            System.out.println("Error parsing field " + field + " at line " + lineNumber + ". " + e.toString());
+            throw new JMeterError(e);
+        } catch (ArrayIndexOutOfBoundsException e) {
+            System.out.println("Insufficient columns to parse field " + field + " at line " + lineNumber);
+            throw new JMeterError(e);
+        }
+        return new SampleEvent(result, "", hostname);
+    }
+
+
+    public static void main(String[] args) {
+        JMeterUtils utils = new JMeterUtils();
+        utils.initializeProperties("/Users/chang.lu/Documents/tools/apache-jmeter-4.0/bin/jmeter.properties");
+        loadExistingFile("/Users/chang.lu/Documents/dev_workspace/JmeterTestTool/testrun_1521433634035/20_120.jtl");
+    }
+}

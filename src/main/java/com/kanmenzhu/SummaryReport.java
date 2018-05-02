@@ -43,14 +43,27 @@ public class SummaryReport {
         this.ko = (Integer) datalist.get(2);
         this.error = (BigDecimal) datalist.get(3);
         this.average = (BigDecimal) datalist.get(4);
-        this.min = (Integer) datalist.get(5);
-        this.max = (Integer) datalist.get(6);
-        this.pct90 = (BigDecimal) datalist.get(7);
-        this.pct95 = (BigDecimal) datalist.get(8);
-        this.pct99 = (BigDecimal) datalist.get(9);
-        this.throughput = (BigDecimal) datalist.get(10);
-        this.received = (BigDecimal) datalist.get(11);
-        this.sent = (BigDecimal) datalist.get(12);
+        try {
+            this.min = (Integer) datalist.get(5);
+            this.max = (Integer) datalist.get(6);
+            this.pct90 = (BigDecimal) datalist.get(7);
+            this.pct95 = (BigDecimal) datalist.get(8);
+            this.pct99 = (BigDecimal) datalist.get(9);
+            this.throughput = (BigDecimal) datalist.get(10);
+            this.received = (BigDecimal) datalist.get(11);
+            this.sent = (BigDecimal) datalist.get(12);
+        }catch (ClassCastException e){
+            this.pct90 = (BigDecimal) datalist.get(5);
+            this.pct95 = (BigDecimal) datalist.get(6);
+            this.pct99 = (BigDecimal) datalist.get(7);
+            this.throughput = (BigDecimal) datalist.get(8);
+            this.received = (BigDecimal) datalist.get(9);
+            this.sent = (BigDecimal) datalist.get(10);
+            this.min = (Integer) datalist.get(11);
+            this.max = (Integer) datalist.get(12);
+        }
+
+
     }
 
     public String[] getStringData() {
