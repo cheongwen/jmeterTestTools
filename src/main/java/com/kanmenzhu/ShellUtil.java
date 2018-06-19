@@ -56,6 +56,9 @@ public class ShellUtil {
             String endinfo = "echo \"=======end=======\" >> " + JMETER_TEST_LOG;
             shfile.append(endinfo);
             shfile.append(LINE);
+            String cplog = "cp jmeter.log jmeter_"+i+".log";
+            shfile.append(cplog);
+            shfile.append(LINE);
             String sleep = "sleep " + sleeptime;
             if (SYSTEM_WINDOWS.equals(sys)) {
                 sleep = "ping 1.1.1.1 -n " + sleeptime + " > nul";
