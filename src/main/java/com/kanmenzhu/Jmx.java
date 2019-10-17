@@ -1,7 +1,5 @@
 package com.kanmenzhu;
 
-import com.sun.prism.shader.DrawPgram_ImagePattern_AlphaTest_Loader;
-
 public interface Jmx {
 
     /**
